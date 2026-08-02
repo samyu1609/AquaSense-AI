@@ -35,18 +35,23 @@ app = FastAPI(
 )
 
 # Configure CORS for production (supports Vercel, Render, local dev)
+# IMPORTANT: allow_credentials=True is INCOMPATIBLE with allow_origins=["*"]
+# When wildcard is used, credentials must be False to prevent CORS 400 errors.
 cors_env = os.getenv("CORS_ORIGINS", "*")
-if cors_env == "*":
+if cors_env.strip() == "*":
     origins = ["*"]
+    allow_credentials = False   # Must be False when origins is wildcard
 else:
     origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+    allow_credentials = True    # Safe to use credentials with specific origins
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=allow_credentials,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Register routers under /api prefix
