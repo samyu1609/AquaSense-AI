@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --deep: #072B34;
+  --panel: #0E3A44;
+  --aqua: #35C9CF;
+  --aqua-soft: #7FE3D6;
+  --sand: #E8DFC8;
+}
+
+* {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.mono {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+body {
+  background: radial-gradient(circle at 20% -10%, #0E4A56 0%, #072B34 45%, #051F26 100%);
+}
+
+.dark body {
+  background: radial-gradient(circle at 20% -10%, #0E4A56 0%, #072B34 45%, #051F26 100%);
+}
+
+.light body {
+  background: radial-gradient(circle at 20% -10%, #E6F7F8 0%, #D4F2F4 45%, #C2ECEF 100%);
+  color: #072B34;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(127, 227, 214, 0.15);
+  backdrop-filter: blur(14px);
+}
+
+.light .glass {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  backdrop-filter: blur(14px);
+}
+
+.glass:hover {
+  border-color: rgba(53, 201, 207, 0.4);
+}
+
+.ripple-line {
+  stroke-dasharray: 4 6;
+  animation: dash 3s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(53, 201, 207, 0.3);
+  border-radius: 4px;
+}
+
+.risk-dot {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06);
+}
+
+.leaflet-container {
+  border-radius: 1rem;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+}
