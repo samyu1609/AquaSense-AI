@@ -11,15 +11,28 @@ import {
 } from '../types';
 
 const getApiBaseUrl = (): string => {
-  let url =
+  const envUrl =
     (import.meta.env.VITE_API_URL as string) ||
-    (import.meta.env.VITE_API_BASE as string) ||
-    '/api';
-  url = url.trim().replace(/\/+$/, '');
-  if (url.startsWith('http') && !url.endsWith('/api')) {
-    url += '/api';
+    (import.meta.env.VITE_API_BASE as string);
+
+  if (envUrl && envUrl.trim()) {
+    let url = envUrl.trim().replace(/\/+$/, '');
+    if (url.startsWith('http') && !url.endsWith('/api')) {
+      url += '/api';
+    }
+    return url;
   }
-  return url;
+
+  // When deployed in production (e.g. Vercel), route directly to Render backend
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1'
+  ) {
+    return 'https://aquasense-ai-1-7kox.onrender.com/api';
+  }
+
+  return '/api';
 };
 
 const API_BASE = getApiBaseUrl();
