@@ -83,30 +83,40 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ district, setDistr
   const loadDashboardDataWithLocation = async (targetDistrict: string, lat: number, lon: number) => {
     setLoading(true);
     try {
-      const [wxData, histData, mapRes, trData] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchWeather(targetDistrict, lat, lon),
         fetchHistory(8),
         fetchMapData(),
         fetchTrend(targetDistrict),
       ]);
-      setWeather(wxData);
+
+      const wxData = results[0].status === 'fulfilled' ? results[0].value : null;
+      const histData = results[1].status === 'fulfilled' ? results[1].value : [];
+      const mapRes = results[2].status === 'fulfilled' ? results[2].value : { wells: [] };
+      const trData = results[3].status === 'fulfilled' ? results[3].value : { district: targetDistrict, monthly_trend: [] };
+
+      if (wxData) setWeather(wxData);
       setHistory(histData);
       setWells(mapRes.wells);
       setTrendData(trData);
 
       // Auto run prediction with detected coordinates
-      const predRes = await postPrediction({
-        latitude: lat,
-        longitude: lon,
-        district: targetDistrict,
-        rainfall_mm: wxData.rainfall || 25,
-        temperature_c: wxData.temperature || 30,
-        humidity_pct: wxData.humidity || 65,
-        previous_level: 8.5,
-        month: new Date().getMonth() + 1,
-        season: 'Monsoon',
-      });
-      setPrediction(predRes);
+      try {
+        const predRes = await postPrediction({
+          latitude: lat,
+          longitude: lon,
+          district: targetDistrict,
+          rainfall_mm: wxData?.rainfall || 25,
+          temperature_c: wxData?.temperature || 30,
+          humidity_pct: wxData?.humidity || 65,
+          previous_level: 8.5,
+          month: new Date().getMonth() + 1,
+          season: 'Monsoon',
+        });
+        setPrediction(predRes);
+      } catch (pErr) {
+        console.error('Prediction failed:', pErr);
+      }
     } catch (err) {
       console.error('Error loading dashboard:', err);
     } finally {
@@ -117,36 +127,47 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ district, setDistr
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [wxData, histData, mapRes, trData] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchWeather(district),
         fetchHistory(8),
         fetchMapData(),
         fetchTrend(district),
       ]);
-      setWeather(wxData);
+
+      const wxData = results[0].status === 'fulfilled' ? results[0].value : null;
+      const histData = results[1].status === 'fulfilled' ? results[1].value : [];
+      const mapRes = results[2].status === 'fulfilled' ? results[2].value : { wells: [] };
+      const trData = results[3].status === 'fulfilled' ? results[3].value : { district, monthly_trend: [] };
+
+      if (wxData) setWeather(wxData);
       setHistory(histData);
       setWells(mapRes.wells);
       setTrendData(trData);
 
       // Auto run prediction for active district
-      const predRes = await postPrediction({
-        latitude: detectedLat,
-        longitude: detectedLon,
-        district,
-        rainfall_mm: wxData.rainfall || 25,
-        temperature_c: wxData.temperature || 30,
-        humidity_pct: wxData.humidity || 65,
-        previous_level: 8.5,
-        month: new Date().getMonth() + 1,
-        season: 'Monsoon',
-      });
-      setPrediction(predRes);
+      try {
+        const predRes = await postPrediction({
+          latitude: detectedLat,
+          longitude: detectedLon,
+          district,
+          rainfall_mm: wxData?.rainfall || 25,
+          temperature_c: wxData?.temperature || 30,
+          humidity_pct: wxData?.humidity || 65,
+          previous_level: 8.5,
+          month: new Date().getMonth() + 1,
+          season: 'Monsoon',
+        });
+        setPrediction(predRes);
+      } catch (pErr) {
+        console.error('Prediction failed:', pErr);
+      }
     } catch (err) {
       console.error('Error loading dashboard:', err);
     } finally {
       setLoading(false);
     }
   };
+
 
   // Only load data on district change if GPS has already run
   useEffect(() => {

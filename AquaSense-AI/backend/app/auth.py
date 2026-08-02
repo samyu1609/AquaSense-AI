@@ -22,7 +22,8 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "aquasense-dev-secret-change-in-product
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
-pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+# Support bcrypt, sha256_crypt, and pbkdf2_sha256 for maximum compatibility
+pwd_context = CryptContext(schemes=["bcrypt", "sha256_crypt", "pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 
@@ -31,7 +32,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
