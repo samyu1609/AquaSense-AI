@@ -6,12 +6,16 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     rootDir: backend
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
       - key: DATABASE_URL
         fromDatabase:
           name: aquasense-db
           property: connectionString
       - key: JWT_SECRET_KEY
         generateValue: true
+      - key: CORS_ORIGINS
+        value: "*"
       - key: OPENWEATHER_API_KEY
         sync: false
 
@@ -22,7 +26,7 @@ services:
     staticPublishPath: ./dist
     rootDir: frontend
     envVars:
-      - key: VITE_API_BASE
+      - key: VITE_API_URL
         value: https://aquasense-backend.onrender.com/api
 
 databases:

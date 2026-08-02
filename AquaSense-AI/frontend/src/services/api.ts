@@ -10,7 +10,19 @@ import {
   WellMarker,
 } from '../types';
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api';
+const getApiBaseUrl = (): string => {
+  let url =
+    (import.meta.env.VITE_API_URL as string) ||
+    (import.meta.env.VITE_API_BASE as string) ||
+    '/api';
+  url = url.trim().replace(/\/+$/, '');
+  if (url.startsWith('http') && !url.endsWith('/api')) {
+    url += '/api';
+  }
+  return url;
+};
+
+const API_BASE = getApiBaseUrl();
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('aquasense_token');
