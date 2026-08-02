@@ -1,25 +1,37 @@
 """
 database.py
 
-Database engine and session factory. Defaults to SQLite for zero-config
-local development; set DATABASE_URL env var to a PostgreSQL DSN for
-production, e.g.:
-
-    postgresql://user:password@localhost:5432/aquasense
+Database engine and session factory. Dynamically selects PostgreSQL DSN
+when DATABASE_URL is set, or defaults to SQLite for local development.
+Includes strict DSN scheme validation to prevent deployment crashes from
+invalid environment variables.
 """
 
+import logging
 import os
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./aquasense.db")
+logger = logging.getLogger("aquasense.db")
 
-# Render / Heroku Postgres connection strings start with postgres://
+raw_db_url = os.getenv("DATABASE_URL", "").strip()
+
+# Render / Heroku Postgres DSNs start with postgres://
 # SQLAlchemy 1.4+ / 2.0 requires postgresql://
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if raw_db_url.startswith("postgres://"):
+    raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+
+# Valid database URI schemes
+VALID_SCHEMES = ("sqlite://", "postgresql://", "mysql://", "oracle://", "mssql://")
+
+if any(raw_db_url.startswith(scheme) for scheme in VALID_SCHEMES):
+    DATABASE_URL = raw_db_url
+else:
+    if raw_db_url:
+        logger.warning(f"[WARN] Invalid DATABASE_URL value '{raw_db_url}'. Falling back to SQLite ('sqlite:///./aquasense.db').")
+    DATABASE_URL = "sqlite:///./aquasense.db"
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
