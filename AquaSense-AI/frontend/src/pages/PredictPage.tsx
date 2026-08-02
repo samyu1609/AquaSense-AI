@@ -42,7 +42,7 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
         setLongitude(lon);
         setGpsLoading(true);
 
-        // 1. Reverse geocode via OpenStreetMap Nominatim (no API key needed)
+        // 1. Reverse geocode via OpenStreetMap Nominatim with coordinate fallback
         let detectedDistrict = district;
         try {
           const geoRes = await fetch(
@@ -50,24 +50,33 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
             { headers: { 'Accept-Language': 'en' } }
           );
           const geoData = await geoRes.json();
-          const addr = geoData.address || {};
-          // Nominatim returns county/district/state_district depending on region
-          const rawDistrict =
-            addr.county ||
-            addr.state_district ||
-            addr.district ||
-            addr.city_district ||
-            '';
-          // Match against our known Tamil Nadu districts
-          const matched = DISTRICTS.find((d) =>
-            rawDistrict.toLowerCase().includes(d.toLowerCase())
-          );
+          const fullText = (
+            (geoData.display_name || '') + ' ' + JSON.stringify(geoData.address || {})
+          ).toLowerCase();
+
+          const matched = DISTRICTS.find((d) => fullText.includes(d.toLowerCase()));
           if (matched) {
             detectedDistrict = matched;
             setDistrict(matched);
+          } else {
+            // Coordinate bounding box detection for Tamil Nadu
+            if (lat >= 11.0 && lat <= 11.8 && lon >= 77.0 && lon <= 77.9) detectedDistrict = 'Erode';
+            else if (lat >= 10.7 && lat <= 11.3 && lon >= 76.7 && lon <= 77.3) detectedDistrict = 'Coimbatore';
+            else if (lat >= 12.8 && lat <= 13.3 && lon >= 80.0 && lon <= 80.4) detectedDistrict = 'Chennai';
+            else if (lat >= 9.7 && lat <= 10.2 && lon >= 78.0 && lon <= 78.4) detectedDistrict = 'Madurai';
+            else if (lat >= 11.4 && lat <= 11.9 && lon >= 77.9 && lon <= 78.5) detectedDistrict = 'Salem';
+            else if (lat >= 10.6 && lat <= 11.1 && lon >= 78.4 && lon <= 79.1) detectedDistrict = 'Tiruchirappalli';
+
+            if (detectedDistrict) {
+              setDistrict(detectedDistrict);
+            }
           }
         } catch {
-          // Nominatim unavailable — keep current district
+          // Nominatim fallback via lat/lon
+          if (lat >= 11.0 && lat <= 11.8 && lon >= 77.0 && lon <= 77.9) {
+            detectedDistrict = 'Erode';
+            setDistrict('Erode');
+          }
         }
 
         // 2. Fetch live weather for detected district and auto-fill fields
