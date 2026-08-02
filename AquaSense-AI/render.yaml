@@ -2,9 +2,11 @@ services:
   - type: web
     name: aquasense-backend
     env: python
+    plan: free
+    rootDir: backend
     buildCommand: pip install -r requirements.txt && python seed_admin.py
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    rootDir: backend
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.10
@@ -22,9 +24,10 @@ services:
   - type: web
     name: aquasense-frontend
     env: static
+    plan: free
+    rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
-    rootDir: frontend
     envVars:
       - key: VITE_API_URL
         value: https://aquasense-backend.onrender.com/api
@@ -33,3 +36,4 @@ databases:
   - name: aquasense-db
     databaseName: aquasense
     user: aquasense_user
+    plan: free
