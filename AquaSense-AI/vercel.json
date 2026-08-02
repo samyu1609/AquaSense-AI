@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://aquasense-backend.onrender.com/api/:path*"
+      "destination": "https://aquasense-ai-1-7kox.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

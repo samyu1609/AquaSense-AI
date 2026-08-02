@@ -30,7 +30,7 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        value: https://aquasense-backend.onrender.com/api
+        value: https://aquasense-ai-1-7kox.onrender.com/api
 
 databases:
   - name: aquasense-db
