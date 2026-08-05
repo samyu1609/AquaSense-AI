@@ -72,3 +72,85 @@ async def get_weather(
             )
 
     return _climatology_fallback(district)
+
+
+async def get_7day_weather_forecast(district: str, lat: float = None, lon: float = None) -> tuple:
+    """
+    Returns (current_weather_dict, daily_weather_series_list).
+    daily_weather_series_list is a 7-element list of dicts with keys: temperature, humidity, rainfall.
+    """
+    current_wx = _climatology_fallback(district)
+    daily_series = []
+
+    if OPENWEATHER_API_KEY and lat is not None and lon is not None:
+        try:
+            url_current = "https://api.openweathermap.org/data/2.5/weather"
+            params = {"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY, "units": "metric"}
+            async with httpx.AsyncClient(timeout=8) as client:
+                resp = await client.get(url_current, params=params)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    current_wx = {
+                        "district": district,
+                        "temperature": round(float(data["main"]["temp"]), 1),
+                        "humidity": round(float(data["main"]["humidity"]), 1),
+                        "rainfall": round(float(data.get("rain", {}).get("1h", 0.0)), 1),
+                        "pressure": round(float(data["main"]["pressure"]), 1),
+                        "wind_speed": round(float(data["wind"]["speed"]), 1),
+                        "source": "openweather_live",
+                    }
+
+            url_forecast = "https://api.openweathermap.org/data/2.5/forecast"
+            async with httpx.AsyncClient(timeout=8) as client:
+                f_resp = await client.get(url_forecast, params=params)
+                if f_resp.status_code == 200:
+                    fdata = f_resp.json()
+                    # Aggregate 3-hour forecasts by day
+                    from collections import defaultdict
+                    by_day = defaultdict(list)
+                    for item in fdata.get("list", []):
+                        day_key = item["dt_txt"].split(" ")[0]
+                        by_day[day_key].append(item)
+
+                    sorted_days = sorted(by_day.keys())
+                    for day_k in sorted_days[:7]:
+                        items = by_day[day_k]
+                        avg_temp = sum(it["main"]["temp"] for it in items) / len(items)
+                        avg_hum = sum(it["main"]["humidity"] for it in items) / len(items)
+                        total_rain = sum(it.get("rain", {}).get("3h", 0.0) for it in items)
+                        daily_series.append({
+                            "temperature": round(avg_temp, 1),
+                            "humidity": round(avg_hum, 1),
+                            "rainfall": round(total_rain, 1),
+                        })
+        except Exception:
+            pass
+
+    # If daily_series is empty or incomplete (< 7 days), pad with climatology estimates with minor daily variations
+    base_temp = current_wx["temperature"]
+    base_hum = current_wx["humidity"]
+    base_rain = current_wx["rainfall"]
+
+    # Variational multipliers over 7 days for realistic weather progression
+    temp_offsets = [0.0, -0.4, -0.8, -0.3, 0.2, 0.5, 0.1]
+    hum_offsets = [0.0, 2.0, 4.0, 1.0, -2.0, -3.0, -1.0]
+    rain_offsets = [0.0, -2.5, -5.0, -7.5, -9.0, -10.0, -11.0]
+
+    while len(daily_series) < 7:
+        idx = len(daily_series)
+        t_off = temp_offsets[idx] if idx < len(temp_offsets) else 0.0
+        h_off = hum_offsets[idx] if idx < len(hum_offsets) else 0.0
+        r_off = rain_offsets[idx] if idx < len(rain_offsets) else 0.0
+
+        daily_series.append({
+            "temperature": round(max(15.0, base_temp + t_off), 1),
+            "humidity": round(np_clip(base_hum + h_off, 20.0, 100.0), 1),
+            "rainfall": round(max(0.0, base_rain + r_off), 1),
+        })
+
+    return current_wx, daily_series
+
+
+def np_clip(val, min_val, max_val):
+    return max(min_val, min(max_val, val))
+

@@ -1,30 +1,48 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { CloudRain, Droplets, ShieldAlert, Sparkles, Thermometer, TrendingUp, RefreshCw } from 'lucide-react';
-import { fetchHistory, fetchMapData, fetchTrend, fetchWeather, postPrediction } from '../services/api';
-import { HistoryItem, PredictionResponse, WeatherData, WellMarker } from '../types';
-import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Title, Tooltip, BarElement } from 'chart.js';
-import { Line, Bar } from 'react-chartjs-2';
+import {
+  CloudRain,
+  Droplets,
+  ShieldAlert,
+  Sparkles,
+  Thermometer,
+  TrendingUp,
+  RefreshCw,
+  MapPin,
+  CheckCircle2,
+} from 'lucide-react';
+import { fetchForecast, fetchHistory, fetchMapData, fetchTrend } from '../services/api';
+import { ForecastResponse, HistoryItem, WellMarker } from '../types';
 import { DISTRICTS } from '../components/Navbar';
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
+import { ForecastCards } from '../components/ForecastCards';
+import { ForecastChart } from '../components/ForecastChart';
+import { ForecastTable } from '../components/ForecastTable';
+import { MapContainer, TileLayer, CircleMarker, Popup, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 interface DashboardPageProps {
   district: string;
   setDistrict?: (d: string) => void;
 }
 
+const userIcon = L.divIcon({
+  className: 'custom-user-marker',
+  html: `<div style="background-color: #35C9CF; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(53, 201, 207, 0.5);"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({ district, setDistrict }) => {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
+  const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [trendData, setTrendData] = useState<any>(null);
   const [wells, setWells] = useState<WellMarker[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [detectedLat, setDetectedLat] = useState<number>(11.0);
-  const [detectedLon, setDetectedLon] = useState<number>(78.6);
+  const [detectedLat, setDetectedLat] = useState<number>(13.0827);
+  const [detectedLon, setDetectedLon] = useState<number>(80.2707);
   const hasAutoRun = useRef(false);
 
-  // ── GPS AUTO-DETECTION (runs once on mount, silently) ────────────────────
+  // ── GPS AUTO-DETECTION (runs once on mount, automatically) ────────────────────
   useEffect(() => {
     if (hasAutoRun.current) return;
     if (!navigator.geolocation) return;
@@ -40,7 +58,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ district, setDistr
         setDetectedLat(lat);
         setDetectedLon(lon);
 
-        // 1. Reverse geocode via OpenStreetMap Nominatim with coordinate fallback
         let detectedDistrict = district;
         try {
           const geoRes = await fetch(
@@ -56,324 +73,295 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ district, setDistr
           if (matched && setDistrict) {
             detectedDistrict = matched;
             setDistrict(matched);
-          } else {
-            // Coordinate bounding box detection for Tamil Nadu
-            if (lat >= 11.0 && lat <= 11.8 && lon >= 77.0 && lon <= 77.9) detectedDistrict = 'Erode';
-            else if (lat >= 10.7 && lat <= 11.3 && lon >= 76.7 && lon <= 77.3) detectedDistrict = 'Coimbatore';
-            else if (lat >= 12.8 && lat <= 13.3 && lon >= 80.0 && lon <= 80.4) detectedDistrict = 'Chennai';
-            else if (lat >= 9.7 && lat <= 10.2 && lon >= 78.0 && lon <= 78.4) detectedDistrict = 'Madurai';
-            else if (lat >= 11.4 && lat <= 11.9 && lon >= 77.9 && lon <= 78.5) detectedDistrict = 'Salem';
-            else if (lat >= 10.6 && lat <= 11.1 && lon >= 78.4 && lon <= 79.1) detectedDistrict = 'Tiruchirappalli';
-
-            if (detectedDistrict && setDistrict) {
-              setDistrict(detectedDistrict);
-            }
           }
         } catch {
-          // Nominatim fallback via lat/lon
-          if (lat >= 11.0 && lat <= 11.8 && lon >= 77.0 && lon <= 77.9) {
-            detectedDistrict = 'Erode';
-            if (setDistrict) setDistrict('Erode');
-          }
+          /* Fallback to default district */
         }
 
-        // 2. Reload dashboard with detected location
-        loadDashboardDataWithLocation(detectedDistrict, lat, lon);
+        loadForecastDashboard(detectedDistrict, lat, lon);
       },
       () => {
-        // User denied or geolocation unavailable — load with defaults
-        loadDashboardData();
+        // Fallback to default district if geolocation rejected/unavailable
+        loadForecastDashboard(district, detectedLat, detectedLon);
       },
-      { timeout: 10000, maximumAge: 60000 }
+      { timeout: 8000, maximumAge: 60000 }
     );
-  }, [district]); // eslint-disable-line react-hooks/exhaustive-deps
-  // ── END GPS AUTO-DETECTION ───────────────────────────────────────────────
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadDashboardDataWithLocation = async (targetDistrict: string, lat: number, lon: number) => {
+  const loadForecastDashboard = async (targetDistrict: string, lat?: number, lon?: number) => {
     setLoading(true);
     try {
       const results = await Promise.allSettled([
-        fetchWeather(targetDistrict, lat, lon),
+        fetchForecast(targetDistrict, lat, lon),
         fetchHistory(8),
         fetchMapData(),
         fetchTrend(targetDistrict),
       ]);
 
-      const wxData = results[0].status === 'fulfilled' ? results[0].value : null;
-      const histData = results[1].status === 'fulfilled' ? results[1].value : [];
-      const mapRes = results[2].status === 'fulfilled' ? results[2].value : { wells: [] };
-      const trData = results[3].status === 'fulfilled' ? results[3].value : { district: targetDistrict, monthly_trend: [] };
-
-      if (wxData) setWeather(wxData);
-      setHistory(histData);
-      setWells(mapRes.wells);
-      setTrendData(trData);
-
-      // Auto run prediction with detected coordinates
-      try {
-        const predRes = await postPrediction({
-          latitude: lat,
-          longitude: lon,
-          district: targetDistrict,
-          rainfall_mm: wxData?.rainfall || 25,
-          temperature_c: wxData?.temperature || 30,
-          humidity_pct: wxData?.humidity || 65,
-          previous_level: 8.5,
-          month: new Date().getMonth() + 1,
-          season: 'Monsoon',
-        });
-        setPrediction(predRes);
-      } catch (pErr) {
-        console.error('Prediction failed:', pErr);
-      }
+      if (results[0].status === 'fulfilled') setForecastData(results[0].value);
+      if (results[1].status === 'fulfilled') setHistory(results[1].value);
+      if (results[2].status === 'fulfilled') setWells(results[2].value.wells);
+      if (results[3].status === 'fulfilled') setTrendData(results[3].value);
     } catch (err) {
-      console.error('Error loading dashboard:', err);
+      console.error('Error loading forecast dashboard:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      const results = await Promise.allSettled([
-        fetchWeather(district),
-        fetchHistory(8),
-        fetchMapData(),
-        fetchTrend(district),
-      ]);
-
-      const wxData = results[0].status === 'fulfilled' ? results[0].value : null;
-      const histData = results[1].status === 'fulfilled' ? results[1].value : [];
-      const mapRes = results[2].status === 'fulfilled' ? results[2].value : { wells: [] };
-      const trData = results[3].status === 'fulfilled' ? results[3].value : { district, monthly_trend: [] };
-
-      if (wxData) setWeather(wxData);
-      setHistory(histData);
-      setWells(mapRes.wells);
-      setTrendData(trData);
-
-      // Auto run prediction for active district
-      try {
-        const predRes = await postPrediction({
-          latitude: detectedLat,
-          longitude: detectedLon,
-          district,
-          rainfall_mm: wxData?.rainfall || 25,
-          temperature_c: wxData?.temperature || 30,
-          humidity_pct: wxData?.humidity || 65,
-          previous_level: 8.5,
-          month: new Date().getMonth() + 1,
-          season: 'Monsoon',
-        });
-        setPrediction(predRes);
-      } catch (pErr) {
-        console.error('Prediction failed:', pErr);
-      }
-    } catch (err) {
-      console.error('Error loading dashboard:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  // Only load data on district change if GPS has already run
   useEffect(() => {
     if (hasAutoRun.current) {
-      loadDashboardData();
+      loadForecastDashboard(district, detectedLat, detectedLon);
     }
   }, [district]);
 
-  const riskColor = (risk: string) => {
-    if (risk === 'Safe') return 'text-green-400 bg-green-500/10 border-green-500/30';
-    if (risk === 'Moderate') return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
-    return 'text-red-400 bg-red-500/10 border-red-500/30';
+  const todayPred = forecastData?.today_prediction;
+  const weather = forecastData?.weather;
+
+  const riskBadgeStyle = (risk: string) => {
+    if (risk === 'Safe') return 'text-green-400 bg-green-500/15 border-green-500/30';
+    if (risk === 'Moderate') return 'text-amber-400 bg-amber-500/15 border-amber-500/30';
+    return 'text-red-400 bg-red-500/15 border-red-500/30';
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
+      {/* Top Banner Header */}
       <div className="glass rounded-2xl p-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-1">
-          <span className="text-xs uppercase tracking-widest text-[#35C9CF] mono font-semibold">
-            {district} District Overview
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-widest text-[#35C9CF] mono font-bold bg-[#35C9CF]/10 px-2.5 py-0.5 rounded-full border border-[#35C9CF]/30">
+              7-Day Groundwater Forecast
+            </span>
+            <span className="text-xs text-gray-400 mono">GPS: {detectedLat.toFixed(2)}°N, {detectedLon.toFixed(2)}°E</span>
+          </div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            Groundwater Decision Support Dashboard
+            {district} District Decision Support Dashboard
           </h2>
           <p className="text-xs text-[#EAF6F4]/70">
-            Real-time weather telemetry, machine learning predictions & spatial risk metrics.
+            Multi-step recursive machine learning predictions & OpenWeather forecast telemetry.
           </p>
         </div>
         <button
-          onClick={loadDashboardData}
+          onClick={() => loadForecastDashboard(district, detectedLat, detectedLon)}
           disabled={loading}
-          className="glass hover:bg-[#35C9CF]/20 text-[#35C9CF] px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2"
+          className="glass hover:bg-[#35C9CF]/20 text-[#35C9CF] px-4 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-2 shadow-sm"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Data
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh 7-Day Forecast
         </button>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Weather Card */}
-        <div className="glass rounded-2xl p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs text-[#7FE3D6]/70 mono uppercase mb-2">
-            <span>Current Weather</span>
-            <Thermometer className="w-4 h-4 text-[#35C9CF]" />
-          </div>
-          <p className="text-3xl font-bold text-white">
-            {weather ? `${weather.temperature}°C` : '—'}
-          </p>
-          <p className="text-xs text-[#EAF6F4]/60 mt-1 flex items-center gap-2">
-            <Droplets className="w-3 h-3 text-[#35C9CF]" /> {weather ? `${weather.humidity}% Humidity` : '—'}
-            <CloudRain className="w-3 h-3 text-blue-400" /> {weather ? `${weather.rainfall}mm Rain` : '—'}
-          </p>
-        </div>
-
-        {/* Prediction Card */}
-        <div className="glass rounded-2xl p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs text-[#7FE3D6]/70 mono uppercase mb-2">
-            <span>Predicted Level</span>
-            <Sparkles className="w-4 h-4 text-[#35C9CF]" />
-          </div>
-          <p className="text-3xl font-bold text-[#35C9CF]">
-            {prediction ? `${prediction.predicted_level_m} m` : '—'}
-          </p>
-          <p className="text-xs text-[#EAF6F4]/60 mt-1">Water column depth level</p>
-        </div>
-
-        {/* Risk Card */}
-        <div className="glass rounded-2xl p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs text-[#7FE3D6]/70 mono uppercase mb-2">
-            <span>Risk Status</span>
-            <ShieldAlert className="w-4 h-4 text-amber-400" />
-          </div>
-          <p className="text-2xl font-bold flex items-center gap-2">
-            {prediction ? (
-              <span className={`px-3 py-1 rounded-full text-sm border font-semibold ${riskColor(prediction.risk)}`}>
-                {prediction.risk} Risk
-              </span>
-            ) : (
-              '—'
-            )}
-          </p>
-          <p className="text-xs text-[#EAF6F4]/60 mt-2">Based on CGWB & ML thresholds</p>
-        </div>
-
-        {/* Confidence Card */}
-        <div className="glass rounded-2xl p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs text-[#7FE3D6]/70 mono uppercase mb-2">
-            <span>ML Confidence</span>
-            <TrendingUp className="w-4 h-4 text-[#35C9CF]" />
-          </div>
-          <p className="text-3xl font-bold text-white">
-            {prediction ? `${Math.round(prediction.confidence * 100)}%` : '—'}
-          </p>
-          <p className="text-xs text-[#EAF6F4]/60 mt-1">
-            Model: {prediction ? prediction.model_used : '—'}
-          </p>
-        </div>
-      </div>
-
-      {/* Main Content Grid: Map + Recommendations */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recommendation Panel */}
-        <div className="glass rounded-2xl p-6 flex flex-col justify-between space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#35C9CF]" /> Recommended Actions
-            </h3>
-            <p className="text-xs text-[#EAF6F4]/60 mb-4">
-              AI-generated decision support for groundwater preservation in {district}.
-            </p>
-            <ul className="space-y-2 text-sm text-[#EAF6F4]/85">
-              {prediction?.recommendations.map((rec, idx) => (
-                <li key={idx} className="flex items-start gap-2 bg-[#0E3A44]/40 p-2.5 rounded-lg border border-white/5">
-                  <span className="text-[#35C9CF] font-bold">›</span>
-                  <span>{rec}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Groundwater Trend Chart */}
-        <div className="glass rounded-2xl p-6 lg:col-span-2 space-y-3">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#35C9CF]" /> Groundwater Level vs Rainfall Trend ({district})
-          </h3>
-          {trendData && trendData.monthly_trend ? (
-            <div className="h-64">
-              <Bar
-                data={{
-                  labels: trendData.monthly_trend.map((r: any) => r.Date),
-                  datasets: [
-                    {
-                      label: 'Rainfall (mm)',
-                      data: trendData.monthly_trend.map((r: any) => r.rainfall),
-                      backgroundColor: 'rgba(127, 227, 214, 0.3)',
-                      borderColor: '#7FE3D6',
-                      borderWidth: 1,
-                      yAxisID: 'y1',
-                    },
-                    {
-                      label: 'Groundwater Level (m)',
-                      data: trendData.monthly_trend.map((r: any) => r.groundwater_level),
-                      type: 'line' as any,
-                      borderColor: '#35C9CF',
-                      backgroundColor: '#35C9CF',
-                      borderWidth: 2,
-                      yAxisID: 'y',
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    x: { ticks: { color: '#EAF6F4' } },
-                    y: { ticks: { color: '#35C9CF' }, title: { display: true, text: 'Level (m)', color: '#35C9CF' } },
-                    y1: { position: 'right', ticks: { color: '#7FE3D6' }, title: { display: true, text: 'Rain (mm)', color: '#7FE3D6' }, grid: { drawOnChartArea: false } },
-                  },
-                  plugins: { legend: { labels: { color: '#EAF6F4' } } },
-                }}
-              />
+      {/* Skeleton Loading State */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="glass rounded-2xl p-5 h-32 animate-pulse flex flex-col justify-between">
+              <div className="h-4 bg-white/10 rounded w-1/2"></div>
+              <div className="h-8 bg-white/20 rounded w-3/4"></div>
+              <div className="h-3 bg-white/10 rounded w-2/3"></div>
             </div>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-xs text-gray-400">Loading chart data...</div>
-          )}
+          ))}
+        </div>
+      ) : (
+        /* Summary Metrics Cards */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Weather Telemetry */}
+          <div className="glass rounded-2xl p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between text-xs text-[#7FE3D6] mono uppercase mb-1">
+              <span>Live Telemetry</span>
+              <Thermometer className="w-4 h-4 text-amber-400" />
+            </div>
+            <p className="text-3xl font-extrabold text-white">
+              {weather ? `${weather.temperature}°C` : '—'}
+            </p>
+            <p className="text-xs text-gray-300 mt-1 flex items-center gap-2">
+              <Droplets className="w-3.5 h-3.5 text-[#35C9CF]" /> {weather ? `${weather.humidity}% Humidity` : '—'}
+              <CloudRain className="w-3.5 h-3.5 text-blue-400" /> {weather ? `${weather.rainfall}mm Rain` : '—'}
+            </p>
+          </div>
+
+          {/* Current Day Groundwater Prediction */}
+          <div className="glass rounded-2xl p-5 relative overflow-hidden ring-1 ring-[#35C9CF]/40">
+            <div className="flex items-center justify-between text-xs text-[#35C9CF] mono uppercase font-bold mb-1">
+              <span>Today's Water Level</span>
+              <Sparkles className="w-4 h-4 text-[#35C9CF]" />
+            </div>
+            <p className="text-3xl font-black text-[#35C9CF]">
+              {todayPred ? `${todayPred.groundwater_level.toFixed(2)} m` : '—'}
+            </p>
+            <p className="text-xs text-gray-300 mt-1">Water column depth level</p>
+          </div>
+
+          {/* Risk Indicator */}
+          <div className="glass rounded-2xl p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between text-xs text-[#7FE3D6] mono uppercase mb-1">
+              <span>Current Risk Status</span>
+              <ShieldAlert className="w-4 h-4 text-amber-400" />
+            </div>
+            <p className="text-2xl font-bold mt-1">
+              {todayPred ? (
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${riskBadgeStyle(todayPred.risk)}`}>
+                  {todayPred.risk} Risk
+                </span>
+              ) : (
+                '—'
+              )}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-2">CGWB Thresholds standard</p>
+          </div>
+
+          {/* ML Confidence Score */}
+          <div className="glass rounded-2xl p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between text-xs text-[#7FE3D6] mono uppercase mb-1">
+              <span>Day 1 ML Confidence</span>
+              <TrendingUp className="w-4 h-4 text-[#35C9CF]" />
+            </div>
+            <p className="text-3xl font-extrabold text-white">
+              {todayPred ? `${Math.round(todayPred.confidence * 100)}%` : '—'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Decays recursively over 7 days</p>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 1: 7-Day Forecast Cards Carousel */}
+      {forecastData && <ForecastCards forecast={forecastData.forecast} />}
+
+      {/* SECTION 2: Interactive Multi-Metric Chart */}
+      {forecastData && (
+        <ForecastChart
+          forecast={forecastData.forecast}
+          historicalTrend={trendData?.monthly_trend || []}
+          district={district}
+        />
+      )}
+
+      {/* SECTION 3: Main Grid (GIS Map + Recommendation Panel) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Recommendation Panel */}
+        <div className="glass rounded-2xl p-6 lg:col-span-5 flex flex-col justify-between space-y-4">
+          <div>
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#35C9CF]" />
+                Irrigation Recommendation Panel
+              </h3>
+              <span className="text-xs text-[#7FE3D6] mono font-bold">7-Day Guidance</span>
+            </div>
+
+            <p className="text-xs text-gray-300 mb-4">
+              AI-driven water allocation and drought advisory rules tuned for {district}.
+            </p>
+
+            <div className="space-y-2.5">
+              {forecastData?.forecast.map((fItem, idx) => (
+                <div
+                  key={idx}
+                  className="bg-[#0E3A44]/50 p-3 rounded-xl border border-white/5 flex items-start gap-2.5"
+                >
+                  <span className="text-xs font-bold text-[#35C9CF] mono bg-[#35C9CF]/10 px-2 py-0.5 rounded border border-[#35C9CF]/20 shrink-0">
+                    {fItem.day_label}
+                  </span>
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-white font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#35C9CF]" /> {fItem.recommendation}
+                    </p>
+                    <p className="text-[10px] text-gray-400">
+                      Depth: {fItem.groundwater_level.toFixed(2)}m • Risk:{' '}
+                      <span className="font-semibold text-amber-300">{fItem.risk}</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* GIS Map Preview */}
+        <div className="glass rounded-2xl p-5 lg:col-span-7 flex flex-col space-y-3">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#35C9CF]" />
+              Spatial Risk Map ({district})
+            </h3>
+            <span className="text-xs text-gray-400 mono">Observation Wells</span>
+          </div>
+
+          <div className="h-[360px] w-full rounded-xl overflow-hidden relative border border-white/10">
+            <MapContainer
+              center={[detectedLat, detectedLon]}
+              zoom={8}
+              className="h-full w-full rounded-xl"
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[detectedLat, detectedLon]} icon={userIcon}>
+                <Popup className="custom-popup">
+                  <div className="p-1 space-y-1 text-xs">
+                    <p className="font-bold text-sm text-[#072B34]">{district} Forecast Site</p>
+                    <p className="text-gray-700">7-Day Predicted Level: <span className="font-bold text-[#35C9CF]">{todayPred?.groundwater_level.toFixed(2)} m</span></p>
+                    <p className="text-gray-700">Risk: <span className="font-bold">{todayPred?.risk}</span></p>
+                  </div>
+                </Popup>
+              </Marker>
+
+              {wells.map((w, idx) => (
+                <CircleMarker
+                  key={idx}
+                  center={[w.latitude, w.longitude]}
+                  radius={7}
+                  pathOptions={{
+                    color: w.colour,
+                    fillColor: w.colour,
+                    fillOpacity: 0.85,
+                  }}
+                >
+                  <Popup className="custom-popup">
+                    <div className="p-1 space-y-1 text-xs text-[#072B34]">
+                      <p className="font-bold">{w.district} Well</p>
+                      <p>Water Level: <b>{w.groundwater_level} m</b></p>
+                      <p>Status: <b style={{ color: w.colour }}>{w.risk}</b></p>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          </div>
         </div>
       </div>
 
-      {/* History Table */}
+      {/* SECTION 4: 7-Day Forecast Data Table */}
+      {forecastData && <ForecastTable forecast={forecastData.forecast} />}
+
+      {/* SECTION 5: Recent Groundwater Inferences History Table */}
       <div className="glass rounded-2xl p-6 space-y-4">
-        <h3 className="text-lg font-semibold text-white">Recent Groundwater Inferences</h3>
+        <h3 className="text-base font-bold text-white">Recent Groundwater Inference Log</h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-[#7FE3D6]/70 mono text-xs uppercase border-b border-white/10">
-              <tr className="text-left">
+          <table className="w-full text-sm text-left">
+            <thead className="text-[#7FE3D6] mono text-xs uppercase border-b border-white/10 bg-[#0E3A44]/40">
+              <tr>
                 <th className="py-2.5 px-3">ID</th>
                 <th className="py-2.5 px-3">District</th>
                 <th className="py-2.5 px-3">Predicted Level</th>
-                <th className="py-2.5 px-3">Risk Assessment</th>
+                <th className="py-2.5 px-3">Risk Status</th>
                 <th className="py-2.5 px-3">Timestamp</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {history.map((row) => (
                 <tr key={row.id} className="hover:bg-white/5 transition">
-                  <td className="py-2.5 px-3 mono text-[#35C9CF]">#{row.id}</td>
+                  <td className="py-2.5 px-3 mono text-[#35C9CF] font-bold">#{row.id}</td>
                   <td className="py-2.5 px-3 font-medium text-white">{row.district}</td>
-                  <td className="py-2.5 px-3">{row.predicted_level} m</td>
+                  <td className="py-2.5 px-3 font-bold">{row.predicted_level} m</td>
                   <td className="py-2.5 px-3">
-                    <span className={`px-2 py-0.5 rounded text-xs border ${riskColor(row.risk)}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${riskBadgeStyle(row.risk)}`}>
                       {row.risk}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-xs text-[#EAF6F4]/50 mono">
+                  <td className="py-2.5 px-3 text-xs text-gray-400 mono">
                     {new Date(row.created_at).toLocaleString()}
                   </td>
                 </tr>

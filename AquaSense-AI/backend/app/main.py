@@ -16,6 +16,7 @@ from .ml.predict_utils import verify_model_loaded
 from .routers import (
     admin_router,
     auth_router,
+    forecast_router,
     predict_router,
     recommendation_router,
     trend_router,
@@ -48,10 +49,12 @@ app.add_middleware(
 # Register routers under /api prefix
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(predict_router.router, prefix="/api")
+app.include_router(forecast_router.router, prefix="/api")
 app.include_router(weather_router.router, prefix="/api")
 app.include_router(recommendation_router.router, prefix="/api")
 app.include_router(trend_router.router, prefix="/api")
 app.include_router(admin_router.router, prefix="/api")
+
 
 
 @app.on_event("startup")

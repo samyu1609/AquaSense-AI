@@ -123,7 +123,7 @@ export const GISMapPage: React.FC<GISMapPageProps> = ({ district }) => {
       </div>
 
       {/* Map Container */}
-      <div className="glass rounded-2xl p-3 h-[580px] relative overflow-hidden">
+      <div className="glass rounded-2xl p-3 h-[420px] md:h-[580px] relative overflow-hidden">
         {loading ? (
           <div className="h-full flex items-center justify-center text-sm text-gray-400">Loading map GIS layers...</div>
         ) : (

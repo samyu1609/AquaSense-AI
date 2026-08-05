@@ -135,3 +135,87 @@ def predict_groundwater(
         "recommendations": recommendations,
         "model_used": artifact.get("model_name", "RandomForestRegressor"),
     }
+
+
+def predict_7day_forecast(
+    latitude: float,
+    longitude: float,
+    district: str,
+    initial_previous_level: float,
+    month: int,
+    season: str,
+    daily_weather_series: list,
+) -> list:
+    """
+    Multi-step recursive 7-day groundwater forecasting pipeline.
+    Each day's predicted level is fed as the 'previous_level' feature for the subsequent day.
+    """
+    from datetime import datetime, timedelta
+
+    forecast_items = []
+    current_prev_level = float(initial_previous_level)
+    today = datetime.now()
+
+    for i in range(7):
+        day_date = today + timedelta(days=i)
+        date_str = day_date.strftime("%Y-%m-%d")
+
+        if i == 0:
+            day_label = "Today"
+        elif i == 1:
+            day_label = "Tomorrow"
+        else:
+            day_label = f"Day {i + 1}"
+
+        # Weather for day i
+        if i < len(daily_weather_series):
+            w = daily_weather_series[i]
+        else:
+            w = {
+                "temperature": 30.0,
+                "humidity": 65.0,
+                "rainfall": 10.0,
+            }
+
+        temp_c = float(w.get("temperature", 30.0))
+        hum_pct = float(w.get("humidity", 65.0))
+        rain_mm = float(w.get("rainfall", 0.0))
+
+        # Perform single step inference with current_prev_level
+        pred_res = predict_groundwater(
+            latitude=latitude,
+            longitude=longitude,
+            district=district,
+            rainfall_mm=rain_mm,
+            temperature_c=temp_c,
+            humidity_pct=hum_pct,
+            previous_level=current_prev_level,
+            month=month,
+            season=season,
+        )
+
+        pred_level = pred_res["predicted_level_m"]
+        # Apply horizon uncertainty decay for multi-step recursive forecasting
+        step_confidence = max(0.65, round(pred_res["confidence"] - (i * 0.02), 3))
+        risk_label = pred_res["risk"]
+        colour = pred_res["risk_colour"]
+        recommendation = pred_res["recommendations"][0] if pred_res["recommendations"] else "Maintain optimal irrigation."
+
+        forecast_items.append({
+            "date": date_str,
+            "day_label": day_label,
+            "groundwater_level": pred_level,
+            "confidence": step_confidence,
+            "risk": risk_label,
+            "risk_colour": colour,
+            "recommendation": recommendation,
+            "temperature": round(temp_c, 1),
+            "rainfall": round(rain_mm, 1),
+            "humidity": round(hum_pct, 1),
+        })
+
+        # Update previous level for the next day's recursive prediction step
+        current_prev_level = pred_level
+
+    return forecast_items
+

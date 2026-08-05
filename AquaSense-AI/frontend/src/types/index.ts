@@ -76,3 +76,39 @@ export interface AdminDashboardStats {
   critical_predictions: number;
   open_alerts: number;
 }
+
+export interface DailyForecastItem {
+  date: string;
+  day_label: string;
+  groundwater_level: number;
+  confidence: number;
+  risk: 'Safe' | 'Moderate' | 'Critical';
+  risk_colour: string;
+  recommendation: string;
+  temperature: number;
+  rainfall: number;
+  humidity: number;
+}
+
+export interface ForecastLocation {
+  district: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface ForecastWeather {
+  temperature: number;
+  humidity: number;
+  rainfall: number;
+  pressure: number;
+  wind_speed: number;
+  source: string;
+}
+
+export interface ForecastResponse {
+  location: ForecastLocation;
+  weather: ForecastWeather;
+  today_prediction: DailyForecastItem;
+  forecast: DailyForecastItem[];
+}
+

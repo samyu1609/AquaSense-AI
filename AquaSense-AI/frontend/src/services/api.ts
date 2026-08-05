@@ -80,6 +80,29 @@ export async function postPrediction(data: PredictionRequest): Promise<Predictio
   return res.json();
 }
 
+export async function fetchForecast(
+  district: string,
+  lat?: number,
+  lon?: number,
+  previousLevel?: number,
+  season?: string
+): Promise<import('../types').ForecastResponse> {
+  let url = `${API_BASE}/prediction/forecast?district=${encodeURIComponent(district)}`;
+  if (lat !== undefined && lon !== undefined) {
+    url += `&lat=${lat}&lon=${lon}`;
+  }
+  if (previousLevel !== undefined) {
+    url += `&previous_level=${previousLevel}`;
+  }
+  if (season !== undefined) {
+    url += `&season=${encodeURIComponent(season)}`;
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Forecast fetch failed: ${res.statusText}`);
+  return res.json();
+}
+
+
 export async function fetchMapData(): Promise<{ wells: WellMarker[] }> {
   const res = await fetch(`${API_BASE}/map`);
   if (!res.ok) throw new Error(`Map data fetch failed: ${res.statusText}`);

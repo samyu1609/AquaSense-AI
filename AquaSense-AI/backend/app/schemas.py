@@ -88,3 +88,39 @@ class HistoryItem(BaseModel):
     class Config:
         orm_mode = True
         from_attributes = True
+
+
+class DailyForecastItem(BaseModel):
+    date: str
+    day_label: str
+    groundwater_level: float
+    confidence: float
+    risk: str
+    risk_colour: str
+    recommendation: str
+    temperature: float
+    rainfall: float
+    humidity: float
+
+
+class ForecastLocation(BaseModel):
+    district: str
+    latitude: float
+    longitude: float
+
+
+class ForecastWeather(BaseModel):
+    temperature: float
+    humidity: float
+    rainfall: float
+    pressure: float
+    wind_speed: float
+    source: str
+
+
+class ForecastResponse(BaseModel):
+    location: ForecastLocation
+    weather: ForecastWeather
+    today_prediction: DailyForecastItem
+    forecast: List[DailyForecastItem]
+
