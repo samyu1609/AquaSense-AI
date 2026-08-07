@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { fetchForecast, fetchWeather, postPrediction } from '../services/api';
-import { ForecastResponse, PredictionResponse } from '../types';
+import { Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, WifiOff } from 'lucide-react';
+import { fetchForecast, fetchWeather, postPrediction, fetchShapExplanations } from '../services/api';
+import { ForecastResponse, PredictionResponse, ShapExplanationResponse } from '../types';
 import { DISTRICTS } from '../components/Navbar';
 import { ForecastCards } from '../components/ForecastCards';
 import { ForecastTable } from '../components/ForecastTable';
+import { ShapExplanationCard } from '../components/ShapExplanationCard';
+import { PdfReportButton } from '../components/PdfReportButton';
+import { predictOffline } from '../services/offlineEngine';
 
 interface PredictPageProps {
   district: string;
@@ -24,6 +27,8 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [forecastRes, setForecastRes] = useState<ForecastResponse | null>(null);
+  const [shapRes, setShapRes] = useState<ShapExplanationResponse | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const hasAutoRun = useRef(false);
 
@@ -94,25 +99,40 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
   ) => {
     setLoading(true);
     setError(null);
+
+    const payload = {
+      latitude: lat,
+      longitude: lon,
+      district: tgtDistrict,
+      rainfall_mm: rain,
+      temperature_c: temp,
+      humidity_pct: hum,
+      previous_level: prevLvl,
+      month: new Date().getMonth() + 1,
+      season: sea,
+    };
+
+    if (isOfflineMode) {
+      const offlineRes = predictOffline(payload);
+      setResult(offlineRes);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const [predRes, fcRes] = await Promise.all([
-        postPrediction({
-          latitude: lat,
-          longitude: lon,
-          district: tgtDistrict,
-          rainfall_mm: rain,
-          temperature_c: temp,
-          humidity_pct: hum,
-          previous_level: prevLvl,
-          month: new Date().getMonth() + 1,
-          season: sea,
-        }),
+      const [predRes, fcRes, shapExplanation] = await Promise.all([
+        postPrediction(payload),
         fetchForecast(tgtDistrict, lat, lon, prevLvl, sea),
+        fetchShapExplanations(payload).catch(() => null),
       ]);
       setResult(predRes);
       setForecastRes(fcRes);
+      setShapRes(shapExplanation);
     } catch (err: any) {
-      setError(err.message || 'Prediction failed');
+      setError(err.message || 'Server connection issue. Using local client offline engine.');
+      // Offline fallback
+      const offlineRes = predictOffline(payload);
+      setResult(offlineRes);
     } finally {
       setLoading(false);
     }
@@ -132,15 +152,38 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="glass rounded-2xl p-6 flex items-center gap-4">
-        <div className="p-3 bg-[#35C9CF]/15 rounded-xl border border-[#35C9CF]/30 text-[#35C9CF]">
-          <Sparkles className="w-6 h-6" />
+      <div className="glass rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-[#35C9CF]/15 rounded-xl border border-[#35C9CF]/30 text-[#35C9CF]">
+            <Sparkles className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Machine Learning Groundwater Predictor & 7-Day Forecaster</h2>
+            <p className="text-xs text-[#EAF6F4]/70">
+              Configure telemetry inputs to run single-day inference, Explainable AI (SHAP), and 7-day groundwater forecasting.
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-white">Machine Learning Groundwater Predictor & 7-Day Forecaster</h2>
-          <p className="text-xs text-[#EAF6F4]/70">
-            Configure telemetry inputs to run single-day inference and multi-step recursive 7-day groundwater forecasting.
-          </p>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsOfflineMode(!isOfflineMode)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+              isOfflineMode
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                : 'glass text-gray-300 hover:text-white'
+            }`}
+          >
+            <WifiOff className="w-3.5 h-3.5" />
+            {isOfflineMode ? 'Offline Mode Active' : 'Enable Offline Mode'}
+          </button>
+
+          <PdfReportButton
+            district={district}
+            predictedLevel={result?.predicted_level_m}
+            risk={result?.risk}
+            confidence={result ? Math.round(result.confidence * 100) : 90}
+          />
         </div>
       </div>
 
@@ -309,7 +352,9 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
         </div>
       </div>
 
-      {/* 7-Day Forecast Section */}
+      {/* Explainable AI (SHAP) Chart Section */}
+      {shapRes && <ShapExplanationCard shapData={shapRes} loading={loading} />}
+
       {forecastRes && (
         <div className="space-y-6 pt-4 border-t border-white/10">
           <ForecastCards forecast={forecastRes.forecast} />

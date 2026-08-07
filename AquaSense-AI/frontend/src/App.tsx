@@ -5,6 +5,10 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { DashboardPage } from './pages/DashboardPage';
 import { GISMapPage } from './pages/GISMapPage';
+import { BorewellPage } from './pages/BorewellPage';
+import { SatellitePage } from './pages/SatellitePage';
+import { IoTDashboardPage } from './pages/IoTDashboardPage';
+import { CalculatorsPage } from './pages/CalculatorsPage';
 import { PredictPage } from './pages/PredictPage';
 import { WeatherPage } from './pages/WeatherPage';
 import { TrendsPage } from './pages/TrendsPage';
@@ -51,6 +55,10 @@ export const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<DashboardPage district={selectedDistrict} setDistrict={setSelectedDistrict} />} />
               <Route path="/map" element={<GISMapPage district={selectedDistrict} />} />
+              <Route path="/borewell" element={<BorewellPage district={selectedDistrict} />} />
+              <Route path="/satellite" element={<SatellitePage district={selectedDistrict} />} />
+              <Route path="/iot" element={<IoTDashboardPage district={selectedDistrict} />} />
+              <Route path="/calculators" element={<CalculatorsPage district={selectedDistrict} />} />
               <Route path="/predict" element={<PredictPage district={selectedDistrict} />} />
               <Route path="/weather" element={<WeatherPage district={selectedDistrict} />} />
               <Route path="/trends" element={<TrendsPage district={selectedDistrict} />} />
@@ -66,3 +74,4 @@ export const App: React.FC = () => {
 };
 
 export default App;
+

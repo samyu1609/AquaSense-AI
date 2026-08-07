@@ -224,3 +224,109 @@ export async function deletePrediction(id: number): Promise<{ message: string }>
   if (!res.ok) throw new Error('Delete prediction failed');
   return res.json();
 }
+
+// --- New AquaSense AI API Endpoints ---
+
+export async function fetchBorewellRecommendations(
+  district: string,
+  boundaryPoints: import('../types').LatLngPoint[]
+): Promise<import('../types').BorewellSiteResponse> {
+  const res = await fetch(`${API_BASE}/borewell/recommend`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ district, boundary_points: boundaryPoints, grid_density: 5 }),
+  });
+  if (!res.ok) throw new Error('Borewell site recommendation failed');
+  return res.json();
+}
+
+export async function fetchSatelliteLayers(district: string): Promise<import('../types').SatelliteDataResponse> {
+  const res = await fetch(`${API_BASE}/satellite/layers?district=${encodeURIComponent(district)}`);
+  if (!res.ok) throw new Error('Satellite layers fetch failed');
+  return res.json();
+}
+
+export async function fetchShapExplanations(data: PredictionRequest): Promise<import('../types').ShapExplanationResponse> {
+  const res = await fetch(`${API_BASE}/explain`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('SHAP explanation fetch failed');
+  return res.json();
+}
+
+export async function fetchLiveIoTSensors(district: string): Promise<import('../types').IoTSensorData[]> {
+  const res = await fetch(`${API_BASE}/iot/live?district=${encodeURIComponent(district)}`);
+  if (!res.ok) throw new Error('IoT live sensors fetch failed');
+  return res.json();
+}
+
+export async function fetchExtendedForecast(district: string, previousLevel?: number): Promise<any> {
+  let url = `${API_BASE}/forecast/extended?district=${encodeURIComponent(district)}`;
+  if (previousLevel !== undefined) url += `&previous_level=${previousLevel}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Extended forecast fetch failed');
+  return res.json();
+}
+
+export async function postSmartIrrigation(data: { crop: string; land_area_acres: number; soil_type: string; current_water_table_m: number }): Promise<import('../types').SmartIrrigationResponse> {
+  const res = await fetch(`${API_BASE}/calculators/irrigation`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Smart irrigation calculation failed');
+  return res.json();
+}
+
+export async function postWaterConsumption(data: { crop: string; land_area_acres: number; water_source: string; current_water_table_m: number }): Promise<import('../types').WaterConsumptionResponse> {
+  const res = await fetch(`${API_BASE}/calculators/consumption`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Water consumption calculation failed');
+  return res.json();
+}
+
+export async function postRainwaterHarvesting(data: { roof_area_sqm: number; annual_rainfall_mm: number }): Promise<import('../types').RainwaterHarvestingResponse> {
+  const res = await fetch(`${API_BASE}/calculators/rainwater`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Rainwater harvesting calculation failed');
+  return res.json();
+}
+
+export async function postCropRecommendations(data: { district: string; groundwater_level_m: number; rainfall_mm: number; temperature_c: number; soil_type: string }): Promise<import('../types').CropRecommendationResponse> {
+  const res = await fetch(`${API_BASE}/crops/recommend`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Crop recommendations fetch failed');
+  return res.json();
+}
+
+export async function postBorewellCost(data: { target_depth_m: number; geology_type: string; casing_type: string }): Promise<import('../types').BorewellCostResponse> {
+  const res = await fetch(`${API_BASE}/calculators/borewell-cost`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Borewell cost estimation failed');
+  return res.json();
+}
+
+export async function dispatchMultiChannelAlert(data: { district: string; message: string; channels: string[]; level: string }): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE}/alerts/dispatch`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Alert dispatch failed');
+  return res.json();
+}
+

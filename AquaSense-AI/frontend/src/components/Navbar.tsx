@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, BarChart3, CloudSun, MapPin, Moon, Shield, Sun, UserCheck, LogOut, Sparkles, Menu, X } from 'lucide-react';
+import { Activity, BarChart3, CloudSun, MapPin, Moon, Shield, Sun, UserCheck, LogOut, Sparkles, Menu, X, Mic, Target, Globe, Cpu, Calculator } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { VoiceAssistantModal } from './VoiceAssistantModal';
 
 interface NavbarProps {
   darkMode: boolean;
@@ -24,10 +25,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   const location = useLocation();
   const { user, logout, isAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   const navLinks = [
     { path: '/', label: 'Dashboard', icon: Activity },
     { path: '/map', label: 'GIS Map', icon: MapPin },
+    { path: '/borewell', label: 'Borewell AI', icon: Target },
+    { path: '/satellite', label: 'Satellite Layer', icon: Globe },
+    { path: '/iot', label: 'IoT Stream', icon: Cpu },
+    { path: '/calculators', label: 'Calculators', icon: Calculator },
     { path: '/predict', label: 'AI Predictor', icon: Sparkles },
     { path: '/weather', label: 'Weather', icon: CloudSun },
     { path: '/trends', label: 'Analytics', icon: BarChart3 },
@@ -56,12 +62,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 AquaSense <span className="text-[#35C9CF]">AI</span>
               </h1>
               <p className="text-[9px] uppercase tracking-[0.18em] text-[#7FE3D6]/70 mono mt-0.5">
-                Groundwater Forecast
+                Groundwater Decision Platform
               </p>
             </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-1 ml-6 border-l border-white/10 pl-6">
+          <div className="hidden lg:flex items-center gap-1 ml-4 border-l border-white/10 pl-4 overflow-x-auto">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const active = location.pathname === link.path;
@@ -69,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition flex items-center gap-1.5 whitespace-nowrap ${
                     active
                       ? 'bg-[#35C9CF]/15 text-[#35C9CF] border border-[#35C9CF]/30'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -83,11 +89,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {/* Tamil & English Voice Assistant Button */}
+          <button
+            onClick={() => setVoiceModalOpen(true)}
+            className="glass hover:bg-[#35C9CF]/20 text-[#35C9CF] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 border border-[#35C9CF]/30"
+            title="Tamil & English Voice Assistant"
+          >
+            <Mic className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Voice Assistant</span>
+          </button>
+
           <select
             value={selectedDistrict}
             onChange={(e) => setSelectedDistrict(e.target.value)}
-            className="glass rounded-lg px-2.5 py-1.5 text-xs outline-none text-white bg-[#0E3A44]/80 border border-[#7FE3D6]/20 focus:border-[#35C9CF]"
+            className="glass rounded-lg px-2 py-1.5 text-xs outline-none text-white bg-[#0E3A44]/80 border border-[#7FE3D6]/20 focus:border-[#35C9CF]"
           >
             {DISTRICTS.map((d) => (
               <option key={d} value={d} className="bg-[#072B34] text-white">
@@ -106,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {user ? (
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline text-xs mono bg-[#35C9CF]/10 text-[#35C9CF] border border-[#35C9CF]/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <span className="hidden sm:inline text-xs mono bg-[#35C9CF]/10 text-[#35C9CF] border border-[#35C9CF]/30 px-2 py-1 rounded-full flex items-center gap-1">
                 <UserCheck className="w-3 h-3" />
                 {user.name} ({isAdmin ? 'Admin' : 'User'})
               </span>
@@ -154,6 +170,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
       )}
+
+      {/* Voice Assistant Modal */}
+      <VoiceAssistantModal
+        isOpen={voiceModalOpen}
+        onClose={() => setVoiceModalOpen(false)}
+        district={selectedDistrict}
+      />
     </header>
   );
 };
+

@@ -15,8 +15,10 @@ from .database import Base, engine
 from .ml.predict_utils import verify_model_loaded
 from .routers import (
     admin_router,
+    analytics_router,
     auth_router,
     forecast_router,
+    iot_router,
     predict_router,
     recommendation_router,
     trend_router,
@@ -54,6 +56,9 @@ app.include_router(weather_router.router, prefix="/api")
 app.include_router(recommendation_router.router, prefix="/api")
 app.include_router(trend_router.router, prefix="/api")
 app.include_router(admin_router.router, prefix="/api")
+app.include_router(analytics_router.router, prefix="/api")
+app.include_router(iot_router.router, prefix="/api")
+
 
 
 

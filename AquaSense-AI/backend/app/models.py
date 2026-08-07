@@ -97,3 +97,34 @@ class Log(Base):
     action = Column(String(200))
     detail = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class IoTSensorData(Base):
+    __tablename__ = "iot_sensor_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String(50), index=True)
+    district = Column(String(100))
+    water_level_m = Column(Float)
+    temperature_c = Column(Float)
+    humidity_pct = Column(Float)
+    rain_gauge_mm = Column(Float)
+    soil_moisture_pct = Column(Float)
+    status = Column(String(30), default="Normal")
+    recorded_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BorewellRecommendation(Base):
+    __tablename__ = "borewell_recommendations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    district = Column(String(100), index=True)
+    boundary_geojson = Column(Text)
+    best_lat = Column(Float)
+    best_lon = Column(Float)
+    success_probability = Column(Float)
+    recommended_depth_m = Column(Float)
+    expected_water_level_m = Column(Float)
+    risk_score = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
+

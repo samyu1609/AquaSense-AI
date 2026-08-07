@@ -112,3 +112,110 @@ export interface ForecastResponse {
   forecast: DailyForecastItem[];
 }
 
+export interface LatLngPoint {
+  lat: number;
+  lng: number;
+}
+
+export interface BorewellSiteCandidate {
+  lat: number;
+  lng: number;
+  predicted_level_m: number;
+  risk: string;
+  risk_colour: string;
+  success_probability: number;
+  recommended_depth_m: number;
+  risk_score: number;
+}
+
+export interface BorewellSiteResponse {
+  district: string;
+  best_location: BorewellSiteCandidate;
+  candidates: BorewellSiteCandidate[];
+  overall_risk_score: number;
+  summary: string;
+}
+
+export interface ShapFeatureAttribution {
+  feature: string;
+  contribution: number;
+  direction: 'recharge' | 'depletion';
+}
+
+export interface ShapExplanationResponse {
+  base_value: number;
+  prediction_value: number;
+  attributions: ShapFeatureAttribution[];
+}
+
+export interface IoTSensorData {
+  id: number;
+  device_id: string;
+  district: string;
+  water_level_m: number;
+  temperature_c: number;
+  humidity_pct: number;
+  rain_gauge_mm: number;
+  soil_moisture_pct: number;
+  status: string;
+  recorded_at: string;
+}
+
+export interface SatelliteLayer {
+  id: string;
+  name: string;
+  unit: string;
+  mean_val: number;
+  interpretation: string;
+  color_scale: string;
+}
+
+export interface SatelliteDataResponse {
+  district: string;
+  satellite_sources: string[];
+  layers: SatelliteLayer[];
+}
+
+export interface SmartIrrigationResponse {
+  daily_water_req_m3: number;
+  water_saving_pct: number;
+  recommended_timing: string;
+  schedule_summary: string;
+}
+
+export interface WaterConsumptionResponse {
+  required_water_m3: number;
+  available_water_m3: number;
+  security_days: number;
+  recommendation: string;
+}
+
+export interface RainwaterHarvestingResponse {
+  harvestable_water_liters: number;
+  recommended_tank_size_liters: number;
+  recharge_potential_liters: number;
+  efficiency_score: number;
+}
+
+export interface CropRecommendationItem {
+  crop_name: string;
+  suitability_score: number;
+  expected_yield_ton_acre: number;
+  water_intensity: string;
+  recommendation_reason: string;
+}
+
+export interface CropRecommendationResponse {
+  recommendations: CropRecommendationItem[];
+}
+
+export interface BorewellCostResponse {
+  estimated_drilling_cost: number;
+  casing_cost: number;
+  pump_cost: number;
+  total_estimated_cost: number;
+  expected_yield_lph: number;
+  roi_payback_years: number;
+}
+
+
