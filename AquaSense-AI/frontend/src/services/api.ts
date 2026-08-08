@@ -320,6 +320,16 @@ export async function postBorewellCost(data: { target_depth_m: number; geology_t
   return res.json();
 }
 
+export async function postRechargeEstimation(data: { current_level_m: number; rainfall_mm: number; soil_type?: string }): Promise<import('../types').RechargeEstimationResponse> {
+  const res = await fetch(`${API_BASE}/calculators/recharge`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Groundwater recharge calculation failed');
+  return res.json();
+}
+
 export async function dispatchMultiChannelAlert(data: { district: string; message: string; channels: string[]; level: string }): Promise<{ status: string; message: string }> {
   const res = await fetch(`${API_BASE}/alerts/dispatch`, {
     method: 'POST',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, ShieldCheck, Thermometer, CloudRain } from 'lucide-react';
+import { Table, ShieldCheck, Thermometer, CloudRain, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { DailyForecastItem } from '../types';
 
 interface ForecastTableProps {
@@ -13,6 +13,29 @@ export const ForecastTable: React.FC<ForecastTableProps> = ({ forecast }) => {
     return 'bg-red-500/15 text-red-400 border-red-500/30';
   };
 
+  const getTrendBadge = (trend?: string) => {
+    const t = trend || 'Stable';
+    if (t === 'Rising') {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400">
+          <TrendingUp className="w-3.5 h-3.5" /> Rising
+        </span>
+      );
+    }
+    if (t === 'Falling') {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-400">
+          <TrendingDown className="w-3.5 h-3.5" /> Falling
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-300">
+        <Minus className="w-3.5 h-3.5" /> Stable
+      </span>
+    );
+  };
+
   return (
     <div className="glass rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -20,7 +43,7 @@ export const ForecastTable: React.FC<ForecastTableProps> = ({ forecast }) => {
           <Table className="w-5 h-5 text-[#35C9CF]" />
           7-Day Forecast Data Table
         </h3>
-        <span className="text-xs text-gray-400 mono">Recursive Horizon</span>
+        <span className="text-xs text-gray-400 mono">Day • Predicted Groundwater • Trend</span>
       </div>
 
       <div className="overflow-x-auto">
@@ -28,8 +51,8 @@ export const ForecastTable: React.FC<ForecastTableProps> = ({ forecast }) => {
           <thead className="text-[#7FE3D6] mono text-xs uppercase border-b border-white/10 bg-[#0E3A44]/60">
             <tr>
               <th className="py-3 px-4">Day</th>
-              <th className="py-3 px-4">Date</th>
-              <th className="py-3 px-4">Groundwater Level</th>
+              <th className="py-3 px-4">Predicted Groundwater</th>
+              <th className="py-3 px-4">Trend</th>
               <th className="py-3 px-4">Confidence</th>
               <th className="py-3 px-4">Risk Status</th>
               <th className="py-3 px-4">Weather Telemetry</th>
@@ -47,11 +70,11 @@ export const ForecastTable: React.FC<ForecastTableProps> = ({ forecast }) => {
                 <td className="py-3 px-4 font-bold text-[#35C9CF] mono">
                   {row.day_label}
                 </td>
-                <td className="py-3 px-4 mono text-xs text-gray-300">
-                  {row.date}
-                </td>
                 <td className="py-3 px-4 font-extrabold text-white">
                   {row.groundwater_level.toFixed(2)} <span className="text-xs text-gray-400 font-normal">m</span>
+                </td>
+                <td className="py-3 px-4">
+                  {getTrendBadge(row.trend)}
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2">

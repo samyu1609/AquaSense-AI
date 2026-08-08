@@ -82,6 +82,7 @@ export interface DailyForecastItem {
   day_label: string;
   groundwater_level: number;
   confidence: number;
+  trend?: 'Rising' | 'Falling' | 'Stable' | string;
   risk: 'Safe' | 'Moderate' | 'Critical';
   risk_colour: string;
   recommendation: string;
@@ -142,10 +143,17 @@ export interface ShapFeatureAttribution {
   direction: 'recharge' | 'depletion';
 }
 
+export interface ShapContributionItem {
+  feature: string;
+  percentage: number;
+  raw_attribution?: number;
+}
+
 export interface ShapExplanationResponse {
   base_value: number;
   prediction_value: number;
   attributions: ShapFeatureAttribution[];
+  feature_contributions?: ShapContributionItem[];
 }
 
 export interface IoTSensorData {
@@ -216,6 +224,13 @@ export interface BorewellCostResponse {
   total_estimated_cost: number;
   expected_yield_lph: number;
   roi_payback_years: number;
+}
+
+export interface RechargeEstimationResponse {
+  current_level_m: number;
+  predicted_recharge_m: number;
+  estimated_level_after_recharge_m: number;
+  recharge_percentage: number;
 }
 
 

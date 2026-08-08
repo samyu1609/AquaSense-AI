@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Droplet, ShieldAlert, Sparkles, Thermometer, CloudRain } from 'lucide-react';
+import { Calendar, Droplet, Thermometer, CloudRain, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { DailyForecastItem } from '../types';
 
 interface ForecastCardsProps {
@@ -13,6 +13,29 @@ export const ForecastCards: React.FC<ForecastCardsProps> = ({ forecast }) => {
     return 'bg-red-500/10 text-red-400 border-red-500/30';
   };
 
+  const getTrendBadge = (trend?: string) => {
+    const t = trend || 'Stable';
+    if (t === 'Rising') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
+          <TrendingUp className="w-3 h-3" /> Rising
+        </span>
+      );
+    }
+    if (t === 'Falling') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded-full border border-rose-500/30">
+          <TrendingDown className="w-3 h-3" /> Falling
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-full border border-cyan-500/30">
+        <Minus className="w-3 h-3" /> Stable
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -21,7 +44,7 @@ export const ForecastCards: React.FC<ForecastCardsProps> = ({ forecast }) => {
           7-Day Groundwater Level Forecast
         </h3>
         <span className="text-xs text-[#7FE3D6] mono font-semibold">
-          7-Day Horizon
+          7-Day Forecast Series
         </span>
       </div>
 
@@ -50,12 +73,18 @@ export const ForecastCards: React.FC<ForecastCardsProps> = ({ forecast }) => {
             {/* Depth Level Value */}
             <div>
               <div className="text-[11px] text-gray-400 uppercase tracking-wider mono flex items-center gap-1">
-                <Droplet className="w-3 h-3 text-[#35C9CF]" /> Depth Level
+                <Droplet className="w-3 h-3 text-[#35C9CF]" /> Predicted Level
               </div>
               <p className="text-2xl font-black text-[#35C9CF] mt-0.5">
                 {item.groundwater_level.toFixed(2)}{' '}
                 <span className="text-xs font-normal text-white">m</span>
               </p>
+            </div>
+
+            {/* Trend Indicator */}
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-gray-400">Trend:</span>
+              {getTrendBadge(item.trend)}
             </div>
 
             {/* Risk Badge */}
@@ -81,7 +110,7 @@ export const ForecastCards: React.FC<ForecastCardsProps> = ({ forecast }) => {
               </span>
             </div>
 
-            {/* Confidence & Recommendation */}
+            {/* Confidence */}
             <div className="space-y-1 text-[11px]">
               <div className="flex items-center justify-between text-gray-400">
                 <span>Confidence:</span>
@@ -94,11 +123,6 @@ export const ForecastCards: React.FC<ForecastCardsProps> = ({ forecast }) => {
                 />
               </div>
             </div>
-
-            {/* Recommendation snippet */}
-            <p className="text-[11px] text-gray-300 line-clamp-2 italic bg-[#0E3A44]/40 p-1.5 rounded-md border border-white/5">
-              "{item.recommendation}"
-            </p>
           </div>
         ))}
       </div>

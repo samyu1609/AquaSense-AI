@@ -177,3 +177,31 @@ def estimate_borewell_cost(
         "expected_yield_lph": expected_yield_lph,
         "roi_payback_years": payback_years,
     }
+
+
+def calculate_groundwater_recharge(
+    current_level_m: float,
+    rainfall_mm: float,
+    soil_type: str = "Alluvial",
+) -> Dict[str, Any]:
+    """
+    Estimates groundwater recharge after expected rainfall based on CGWB infiltration factor norms.
+    """
+    soil_lower = (soil_type or "Alluvial").lower()
+    infiltration_coeff = 0.18 if "sandy" in soil_lower else (0.12 if "clay" in soil_lower else 0.15)
+    
+    # Recharge (m rise in water table)
+    predicted_recharge = round((rainfall_mm * infiltration_coeff) / 100.0, 2)
+    estimated_level_after_recharge = round(max(0.1, current_level_m - predicted_recharge), 2)
+
+    if current_level_m > 0:
+        recharge_pct = round((predicted_recharge / current_level_m) * 100.0, 1)
+    else:
+        recharge_pct = 0.0
+
+    return {
+        "current_level_m": round(current_level_m, 2),
+        "predicted_recharge_m": predicted_recharge,
+        "estimated_level_after_recharge_m": estimated_level_after_recharge,
+        "recharge_percentage": recharge_pct,
+    }

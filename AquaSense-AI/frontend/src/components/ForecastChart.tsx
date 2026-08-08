@@ -202,14 +202,14 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({ forecast, historic
                 {
                   label: 'Groundwater Level (m)',
                   data: levels,
-                  type: 'line' as any,
+                  type: 'line',
                   borderColor: '#35C9CF',
                   backgroundColor: '#35C9CF',
                   borderWidth: 3,
                   tension: 0.4,
                   yAxisID: 'y',
                 },
-              ],
+              ] as any,
             }}
             options={{
               ...chartOptions,

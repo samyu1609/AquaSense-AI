@@ -95,6 +95,7 @@ class DailyForecastItem(BaseModel):
     day_label: str
     groundwater_level: float
     confidence: float
+    trend: Optional[str] = "Stable"
     risk: str
     risk_colour: str
     recommendation: str
@@ -160,13 +161,20 @@ class BorewellSiteResponse(BaseModel):
 class ShapFeatureAttribution(BaseModel):
     feature: str
     contribution: float
-    direction: str  # "increases_level" or "decreases_level"
+    direction: str  # "recharge" or "depletion"
+
+
+class ShapContributionItem(BaseModel):
+    feature: str
+    percentage: float
+    raw_attribution: Optional[float] = None
 
 
 class ShapExplanationResponse(BaseModel):
     base_value: float
     prediction_value: float
     attributions: List[ShapFeatureAttribution]
+    feature_contributions: Optional[List[ShapContributionItem]] = None
 
 
 class IoTSensorPayload(BaseModel):
@@ -285,5 +293,18 @@ class DispatchAlertRequest(BaseModel):
     message: str
     channels: List[str]  # ["Email", "SMS", "Push"]
     level: str  # "info", "warning", "critical"
+
+
+class RechargeEstimationRequest(BaseModel):
+    current_level_m: float
+    rainfall_mm: float
+    soil_type: Optional[str] = "Alluvial"
+
+
+class RechargeEstimationResponse(BaseModel):
+    current_level_m: float
+    predicted_recharge_m: float
+    estimated_level_after_recharge_m: float
+    recharge_percentage: float
 
 

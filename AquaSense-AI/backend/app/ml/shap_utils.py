@@ -83,8 +83,29 @@ def compute_shap_explanations(
         },
     ]
 
+    # Calculate four key driver category magnitude sums for percentage breakdown
+    rain_mag = max(0.01, abs(rain_contrib))
+    temp_mag = max(0.01, abs(temp_contrib))
+    hum_mag = max(0.01, abs(hum_contrib))
+    loc_mag = max(0.01, abs(lat_contrib) + abs(lon_contrib) + abs(prev_contrib) + abs(season_mult))
+
+    total_mag = rain_mag + temp_mag + hum_mag + loc_mag
+
+    rain_pct = round((rain_mag / total_mag) * 100)
+    temp_pct = round((temp_mag / total_mag) * 100)
+    hum_pct = round((hum_mag / total_mag) * 100)
+    loc_pct = 100 - (rain_pct + temp_pct + hum_pct)  # Ensure exact 100% total
+
+    feature_contributions = [
+        {"feature": "Rainfall", "percentage": rain_pct, "raw_attribution": rain_contrib},
+        {"feature": "Temperature", "percentage": temp_pct, "raw_attribution": temp_contrib},
+        {"feature": "Humidity", "percentage": hum_pct, "raw_attribution": hum_contrib},
+        {"feature": "Location", "percentage": loc_pct, "raw_attribution": round(lat_contrib + lon_contrib, 3)},
+    ]
+
     return {
         "base_value": base_value,
         "prediction_value": round(predicted_level, 2),
         "attributions": attributions,
+        "feature_contributions": feature_contributions,
     }

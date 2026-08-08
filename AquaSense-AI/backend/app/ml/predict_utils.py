@@ -195,6 +195,15 @@ def predict_7day_forecast(
         )
 
         pred_level = pred_res["predicted_level_m"]
+        # Determine trend based on change from previous level (lower depth = rising water table)
+        diff = pred_level - current_prev_level
+        if diff < -0.05:
+            trend = "Rising"
+        elif diff > 0.05:
+            trend = "Falling"
+        else:
+            trend = "Stable"
+
         # Apply horizon uncertainty decay for multi-step recursive forecasting
         step_confidence = max(0.65, round(pred_res["confidence"] - (i * 0.02), 3))
         risk_label = pred_res["risk"]
@@ -206,6 +215,7 @@ def predict_7day_forecast(
             "day_label": day_label,
             "groundwater_level": pred_level,
             "confidence": step_confidence,
+            "trend": trend,
             "risk": risk_label,
             "risk_colour": colour,
             "recommendation": recommendation,

@@ -1,13 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, WifiOff } from 'lucide-react';
-import { fetchForecast, fetchWeather, postPrediction, fetchShapExplanations } from '../services/api';
-import { ForecastResponse, PredictionResponse, ShapExplanationResponse } from '../types';
+import {
+  fetchForecast,
+  fetchWeather,
+  postPrediction,
+  fetchShapExplanations,
+  postRechargeEstimation,
+} from '../services/api';
+import {
+  ForecastResponse,
+  PredictionResponse,
+  ShapExplanationResponse,
+  RechargeEstimationResponse,
+} from '../types';
 import { DISTRICTS } from '../components/Navbar';
 import { ForecastCards } from '../components/ForecastCards';
 import { ForecastTable } from '../components/ForecastTable';
+import { ForecastChart } from '../components/ForecastChart';
 import { ShapExplanationCard } from '../components/ShapExplanationCard';
+import { RechargeEstimationCard } from '../components/RechargeEstimationCard';
 import { PdfReportButton } from '../components/PdfReportButton';
-import { predictOffline } from '../services/offlineEngine';
+import {
+  predictOffline,
+  explainOffline,
+  estimateRechargeOffline,
+  forecastOffline,
+} from '../services/offlineEngine';
 
 interface PredictPageProps {
   district: string;
@@ -21,18 +39,18 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
   const [temperature, setTemperature] = useState<number>(30.0);
   const [humidity, setHumidity] = useState<number>(65.0);
   const [previousLevel, setPreviousLevel] = useState<number>(8.5);
-  const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
   const [season, setSeason] = useState<string>('Monsoon');
 
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [forecastRes, setForecastRes] = useState<ForecastResponse | null>(null);
   const [shapRes, setShapRes] = useState<ShapExplanationResponse | null>(null);
+  const [rechargeRes, setRechargeRes] = useState<RechargeEstimationResponse | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const hasAutoRun = useRef(false);
 
-  // ── GPS AUTO-DETECTION (runs once on mount, automatically) ────────────────────
+  // ── GPS AUTO-DETECTION (runs once on mount) ────────────────────
   useEffect(() => {
     if (hasAutoRun.current) return;
     if (!navigator.geolocation) return;
@@ -77,7 +95,7 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
           /* Keep defaults */
         }
 
-        // Run prediction & 7-day forecast
+        // Run prediction, SHAP explanation, forecast, and recharge estimation
         runInferenceAndForecast(detectedDistrict, lat, lon, rainfall, temperature, humidity, previousLevel, season);
       },
       () => {
@@ -114,25 +132,43 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
 
     if (isOfflineMode) {
       const offlineRes = predictOffline(payload);
+      const offlineExpl = explainOffline(payload, offlineRes.predicted_level_m);
+      const offlineRecharge = estimateRechargeOffline(prevLvl, rain);
+      const offlineFc = forecastOffline(payload);
+
       setResult(offlineRes);
+      setShapRes(offlineExpl);
+      setRechargeRes(offlineRecharge);
+      setForecastRes(offlineFc);
       setLoading(false);
       return;
     }
 
     try {
-      const [predRes, fcRes, shapExplanation] = await Promise.all([
+      const [predRes, fcRes, shapExplanation, rechargeEstimation] = await Promise.all([
         postPrediction(payload),
         fetchForecast(tgtDistrict, lat, lon, prevLvl, sea),
         fetchShapExplanations(payload).catch(() => null),
+        postRechargeEstimation({ current_level_m: prevLvl, rainfall_mm: rain }).catch(() =>
+          estimateRechargeOffline(prevLvl, rain)
+        ),
       ]);
       setResult(predRes);
       setForecastRes(fcRes);
-      setShapRes(shapExplanation);
+      setShapRes(shapExplanation || explainOffline(payload, predRes.predicted_level_m));
+      setRechargeRes(rechargeEstimation || estimateRechargeOffline(prevLvl, rain));
     } catch (err: any) {
       setError(err.message || 'Server connection issue. Using local client offline engine.');
       // Offline fallback
       const offlineRes = predictOffline(payload);
+      const offlineExpl = explainOffline(payload, offlineRes.predicted_level_m);
+      const offlineRecharge = estimateRechargeOffline(prevLvl, rain);
+      const offlineFc = forecastOffline(payload);
+
       setResult(offlineRes);
+      setShapRes(offlineExpl);
+      setRechargeRes(offlineRecharge);
+      setForecastRes(offlineFc);
     } finally {
       setLoading(false);
     }
@@ -160,7 +196,7 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
           <div>
             <h2 className="text-xl font-bold text-white">Machine Learning Groundwater Predictor & 7-Day Forecaster</h2>
             <p className="text-xs text-[#EAF6F4]/70">
-              Configure telemetry inputs to run single-day inference, Explainable AI (SHAP), and 7-day groundwater forecasting.
+              Configure telemetry inputs to run single-day inference, Explainable AI (SHAP), 7-day forecast, and recharge estimation.
             </p>
           </div>
         </div>
@@ -182,13 +218,13 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
             district={district}
             predictedLevel={result?.predicted_level_m}
             risk={result?.risk}
-            confidence={result ? Math.round(result.confidence * 100) : 90}
+            confidence={result ? Math.round(result.confidence * 100) : 95}
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Input Form */}
+        {/* Environmental Input Form */}
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4 lg:col-span-7">
           <h3 className="text-xs font-bold text-[#7FE3D6] uppercase tracking-wider mono border-b border-white/10 pb-2">
             Environmental Telemetry Input
@@ -307,23 +343,33 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
           </button>
         </form>
 
-        {/* Prediction Results Panel */}
+        {/* Feature 1: Prediction Confidence Score & Results Panel */}
         <div className="glass rounded-2xl p-6 lg:col-span-5 flex flex-col justify-between space-y-6">
           <h3 className="text-xs font-bold text-[#7FE3D6] uppercase tracking-wider mono border-b border-white/10 pb-2">
-            Day 1 Inference Results
+            Inference Output & Confidence Score
           </h3>
 
           {result ? (
             <div className="space-y-6">
-              <div className="text-center space-y-2 py-4 border-b border-white/10">
-                <span className="text-xs text-gray-400 uppercase tracking-widest mono">Predicted Level (Today)</span>
-                <p className="text-5xl font-extrabold text-[#35C9CF]">{result.predicted_level_m} <span className="text-xl text-white font-normal">m</span></p>
+              <div className="text-center space-y-2 py-4 border-b border-white/10 bg-[#0E3A44]/40 rounded-xl border border-white/5">
+                <span className="text-xs text-gray-400 uppercase tracking-widest mono">Groundwater Level</span>
+                <p className="text-5xl font-extrabold text-[#35C9CF]">
+                  {result.predicted_level_m.toFixed(2)} <span className="text-xl text-white font-normal">m</span>
+                </p>
+
+                {/* FEATURE 1: Prediction Confidence Display */}
+                <div className="pt-2">
+                  <span className="text-sm font-semibold text-[#EAF6F4]">
+                    Confidence : <span className="text-[#35C9CF] font-bold">{Math.round(result.confidence * 100)}%</span>
+                  </span>
+                </div>
+
                 <div className="flex justify-center gap-3 mt-3">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border ${riskBadge(result.risk)}`}>
                     {result.risk} Risk
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white border border-white/20">
-                    {Math.round(result.confidence * 100)}% Confidence
+                    Confidence: {Math.round(result.confidence * 100)}%
                   </span>
                 </div>
                 <p className="text-[11px] text-[#EAF6F4]/60 mono mt-2">Engine: {result.model_used}</p>
@@ -346,17 +392,22 @@ export const PredictPage: React.FC<PredictPageProps> = ({ district: initialDistr
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400 space-y-3">
               <Sparkles className="w-10 h-10 text-[#35C9CF]/40" />
-              <p className="text-sm">Submit the environmental form to compute AI groundwater forecasts & risk action guidelines.</p>
+              <p className="text-sm">Submit environmental parameters to run Random Forest ML prediction & confidence analysis.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Explainable AI (SHAP) Chart Section */}
+      {/* FEATURE 2: AI Prediction Explanation (Why was this prediction generated?) */}
       {shapRes && <ShapExplanationCard shapData={shapRes} loading={loading} />}
 
+      {/* FEATURE 4: Groundwater Recharge Estimation */}
+      {rechargeRes && <RechargeEstimationCard rechargeData={rechargeRes} loading={loading} />}
+
+      {/* FEATURE 3: 7-Day Groundwater Forecast (Line Graph + Cards + Table with Trend) */}
       {forecastRes && (
         <div className="space-y-6 pt-4 border-t border-white/10">
+          <ForecastChart forecast={forecastRes.forecast} district={district} />
           <ForecastCards forecast={forecastRes.forecast} />
           <ForecastTable forecast={forecastRes.forecast} />
         </div>

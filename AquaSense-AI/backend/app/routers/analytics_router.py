@@ -24,6 +24,7 @@ from ..ml.calculators import (
     calculate_smart_irrigation,
     calculate_water_consumption,
     calculate_rainwater_harvesting,
+    calculate_groundwater_recharge,
     recommend_crops,
     estimate_borewell_cost,
 )
@@ -187,6 +188,15 @@ def post_borewell_cost_calculator(payload: schemas.BorewellCostRequest):
         target_depth_m=payload.target_depth_m,
         geology_type=payload.geology_type,
         casing_type=payload.casing_type,
+    )
+
+
+@router.post("/calculators/recharge", response_model=schemas.RechargeEstimationResponse)
+def post_recharge_calculator(payload: schemas.RechargeEstimationRequest):
+    return calculate_groundwater_recharge(
+        current_level_m=payload.current_level_m,
+        rainfall_mm=payload.rainfall_mm,
+        soil_type=payload.soil_type or "Alluvial",
     )
 
 
